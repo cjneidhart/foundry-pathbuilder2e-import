@@ -15,6 +15,13 @@
   ],
   "styles": [],
   "packs": [],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
   "license": "MIT",
   "relationships": {
     "requires": [
@@ -24,6 +31,14 @@
         "compatibility": {
           "minimum": "1.0.0.0",
           "verified": "1.12.6.0"
+        }
+      },
+      {
+        "id": "pf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "4.0.0",
+          "verified": "4.6.8"
         }
       }
     ]

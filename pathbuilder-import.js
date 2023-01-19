@@ -35,7 +35,11 @@ async function loadPack(name) {
   let pack = packCache.get(name);
   if (!pack) {
     pack = await game.packs.get(name).getDocuments();
-    packCache.set(name, pack);
+    if (pack) {
+      packCache.set(name, pack);
+    } else {
+      ui.notifications.warn(`Could not load compendium ${name}`);
+    }
   }
   return pack;
 }
@@ -51,12 +55,20 @@ async function loadDeity(output, build) {
   const deities = await loadPack('pf2e.deities');
   const deity = deities.find(x => x.name === build.deity);
   if (deity) {
-    output.deity = deity;
+    output.items.push(Object.assign({}, deity));
+  }
+}
+
+async function loadAncestry(output, build) {
+  const ancestries = await loadPack('pf2e.ancestries');
+  const anc = ancestries.find(x => x.name === build.ancestry);
+  if (anc) {
+    output.items.push(Object.assign({}, anc));
   }
 }
 
 /** Given a Pathbuilder JSON object, construct a foundry-like JSON object. */
-function constructJSON(build) {
+async function constructJSON(build) {
   const output = {};
 
   // Easy plaintext properties
@@ -89,7 +101,10 @@ function constructJSON(build) {
     output.system.abilities[ability] = { value: build.abilities[ability] };
   }
 
-  loadDeity(output, build);
+  output.items = [];
+
+  await loadDeity(output, build);
+  await loadAncestry(output, build);
 
   return output;
 }
@@ -100,7 +115,7 @@ function constructJSON(build) {
  */
 export async function pathbuilderImportFromId(targetActor, buildId) {
   const build = await fetchPathbuilderBuild(buildId);
-  const json = constructJSON(build);
+  const json = await constructJSON(build);
   return targetActor.importFromJSON(JSON.stringify(json));
 }
 

@@ -1,0 +1,138 @@
+{
+    "success": true,
+    "build": {
+        "name": "Benoit Vert",
+        "class": "Investigator",
+        "level": 1,
+        "ancestry": "Goblin",
+        "heritage": "Treedweller Goblin",
+        "background": "Circuit Judge",
+        "alignment": "N",
+        "gender": "Not set",
+        "age": "Not set",
+        "deity": "Not set",
+        "size": 1,
+        "keyability": "int",
+        "languages": [],
+        "attributes": {
+            "ancestryhp": 6,
+            "classhp": 8,
+            "bonushp": 0,
+            "bonushpPerLevel": 0,
+            "speed": 25,
+            "speedBonus": 0
+        },
+        "abilities": {
+            "str": 10,
+            "dex": 14,
+            "con": 10,
+            "int": 18,
+            "wis": 12,
+            "cha": 14
+        },
+        "proficiencies": {
+            "classDC": 2,
+            "perception": 4,
+            "fortitude": 2,
+            "reflex": 4,
+            "will": 4,
+            "heavy": 0,
+            "medium": 0,
+            "light": 2,
+            "unarmored": 2,
+            "advanced": 0,
+            "martial": 2,
+            "simple": 2,
+            "unarmed": 2,
+            "castingArcane": 0,
+            "castingDivine": 0,
+            "castingOccult": 0,
+            "castingPrimal": 0,
+            "acrobatics": 2,
+            "arcana": 2,
+            "athletics": 0,
+            "crafting": 0,
+            "deception": 2,
+            "diplomacy": 2,
+            "intimidation": 2,
+            "medicine": 2,
+            "nature": 0,
+            "occultism": 2,
+            "performance": 0,
+            "religion": 0,
+            "society": 2,
+            "stealth": 2,
+            "survival": 0,
+            "thievery": 2
+        },
+        "feats": [
+            [
+                "Lie to Me",
+                null
+            ],
+            [
+                "No Cause for Alarm",
+                null
+            ],
+            [
+                "Very Sneaky",
+                null,
+                "Ancestry Feat",
+                1
+            ],
+            [
+                "Treedweller Goblin",
+                null,
+                "Heritage",
+                1
+            ],
+            [
+                "That's Odd",
+                null,
+                "Class Feat",
+                1
+            ]
+        ],
+        "specials": [
+            "Pointed Question",
+            "Pursue a Lead",
+            "Interrogation Methodology",
+            "Strategic Strike",
+            "On the Case",
+            "Clue In",
+            "Devise a Stratagem",
+            "Darkvision",
+            "Treedweller Goblin"
+        ],
+        "lores": [
+            [
+                "Legal",
+                2
+            ]
+        ],
+        "equipment": [],
+        "specificProficiencies": {
+            "trained": [],
+            "expert": [],
+            "master": [],
+            "legendary": []
+        },
+        "weapons": [],
+        "money": {
+            "pp": 0,
+            "gp": 15,
+            "sp": 0,
+            "cp": 0
+        },
+        "armor": [],
+        "spellCasters": [],
+        "formula": [],
+        "pets": [],
+        "acTotal": {
+            "acProfBonus": 3,
+            "acAbilityBonus": 2,
+            "acItemBonus": 0,
+            "acTotal": 15
+        }
+    }
+}

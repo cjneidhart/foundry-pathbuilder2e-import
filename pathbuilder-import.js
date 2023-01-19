@@ -96,7 +96,7 @@ function constructJSON(build) {
 
 /** Perform the import using an Actor document and a buildId
  * @param targetActor an Actor document to overwrite
- * @param buildId a six-digit string 
+ * @param buildId a six-digit string
  */
 export async function pathbuilderImportFromId(targetActor, buildId) {
   const build = await fetchPathbuilderBuild(buildId);

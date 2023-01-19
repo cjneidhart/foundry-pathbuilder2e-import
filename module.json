@@ -11,7 +11,7 @@
     "verified": "10"
   },
   "esmodules": [
-        "pathbuilder-import-min.js"
+    "pathbuilder-import.js"
   ],
   "styles": [],
   "packs": [],

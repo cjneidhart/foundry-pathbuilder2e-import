@@ -23,25 +23,9 @@ const SKILLS = [
   ['thievery', 'thi'],
 ];
 
-const packCache = new Map();
-
 function log(message) {
   if (!debug) return;
   console.log('%cPathbuilder Import | ' + message, COLOR_1);
-}
-
-/** Load a compendium pack, or use a cached copy. */
-async function loadPack(name) {
-  let pack = packCache.get(name);
-  if (!pack) {
-    pack = await game.packs.get(name).getDocuments();
-    if (pack) {
-      packCache.set(name, pack);
-    } else {
-      ui.notifications.warn(`Could not load compendium ${name}`);
-    }
-  }
-  return pack;
 }
 
 async function fetchPathbuilderBuild(buildId) {
@@ -51,71 +35,143 @@ async function fetchPathbuilderBuild(buildId) {
     .then(json => json.build);
 }
 
-async function loadDeity(output, build) {
-  const deities = await loadPack('pf2e.deities');
-  const deity = deities.find(x => x.name === build.deity);
-  if (deity) {
-    output.items.push(Object.assign({}, deity));
+class JsonBuilder {
+  constructor(buildJson) {
+    this.build = buildJson;
+    this.idCounter = 0;
   }
-}
 
-async function loadAncestry(output, build) {
-  const ancestries = await loadPack('pf2e.ancestries');
-  const anc = ancestries.find(x => x.name === build.ancestry);
-  if (anc) {
-    output.items.push(Object.assign({}, anc));
+  getFakeId() {
+    const str = String(this.idCounter).padStart(16, '0');
+    this.idCounter++;
+    return str;
   }
-}
 
-/** Given a Pathbuilder JSON object, construct a foundry-like JSON object. */
-async function constructJSON(build) {
-  const output = {};
+  /** Given a Pathbuilder JSON object, construct a foundry-like JSON object. */
+  async constructJSON(build) {
+    // The final object we'll be sending to `importFromJSON`.
+    this.output = {};
 
-  // Easy plaintext properties
-  output.name = build.name;
-  output.type = 'character';
-  output.prototypeToken = { name: build.name };
-  output.system = {
-    details: {
-      age: {
-        value: build.age
+    // Easy plaintext properties
+    this.output.name = build.name;
+    this.output.type = 'character';
+    this.output.prototypeToken = { name: build.name };
+    this.output.system = {
+      details: {
+        age: {
+          value: build.age
+        },
+        gender: {
+          value: build.gender
+        },
+        alignment: {
+          value: build.alignment
+        },
       },
-      gender: {
-        value: build.gender
-      },
-      alignment: {
-        value: build.alignment
-      },
-    },
-  };
-  // Skill proficiencies, excluding Lore
-  output.system.skills = {};
-  for (const [skillName, skillAbbr] of SKILLS) {
-    output.system.skills[skillAbbr] = {
-      rank: build.proficiencies[skillName] / 2
     };
+    // Skill proficiencies, excluding Lore
+    this.output.system.skills = {};
+    for (const [skillName, skillAbbr] of SKILLS) {
+      this.output.system.skills[skillAbbr] = {
+        rank: build.proficiencies[skillName] / 2
+      };
+    }
+    // Ability modifiers
+    this.output.system.abilities = {};
+    for (const ability of ABILITY_SCORES) {
+      this.output.system.abilities[ability] = { value: build.abilities[ability] };
+    }
+
+    this.output.items = [];
+
+    await this.loadABCD('pf2e.ancestries', build.ancestry);
+    await this.loadABCD('pf2e.backgrounds', build.background);
+    await this.loadABCD('pf2e.classes', build['class']);
+    await this.loadABCD('pf2e.heritages', build.heritage);
+    if (build.deity)
+      await this.loadABCD('pf2e.deities', build.deity);
+
+    for (const [loreName, loreProf] of build.lores) {
+      const newLore = {
+        type: 'lore',
+        name: loreName,
+        system: {
+          proficient: {
+            value: loreProf / 2,
+          },
+        },
+        img: 'systems/pf2e/icons/default-icons/lore.svg',
+      };
+      this.output.items.push(newLore);
+    }
+
+    return this.output;
   }
-  // Ability modifiers
-  output.system.abilities = {};
-  for (const ability of ABILITY_SCORES) {
-    output.system.abilities[ability] = { value: build.abilities[ability] };
+
+  /**
+   * Function to load the Ancestry, Background, Class, Heritage, or Deity
+   * from a compendium and append it to the items list.
+   */
+  async loadABCD(packName, itemName) {
+    const pack = await game.packs.get(packName).getDocuments();
+    const itemFromCompendium = pack.find(x => x.name === itemName);
+    if (itemFromCompendium) {
+      // Create a shallow copy to make sure it's POD
+      const item = this.pushItem(itemFromCompendium);
+      const subItems = item.system?.items;
+      if (subItems) {
+        for (const subItemKey of Object.keys(subItems)) {
+          const subItem = subItems[subItemKey];
+          if (subItem.level <= 1) {
+            await this.loadItemFromUuid(subItem.uuid);
+          }
+        }
+      }
+    }
   }
 
-  output.items = [];
+  /**
+   * Loads an item from a compendium given its uuid.
+   * @param uuid The uuid to find the item with,
+   *              for example "Compendium.pf2e.classfeatures.a3pSIKkDVTvvNSRO".
+   */
+  async loadItemFromUuid(uuid) {
+    if (!(uuid.startsWith('Compendium.'))) {
+      log(`Not sure how to handle uuid: ${uuid}`);
+      return;
+    }
+    // Discard the 'Compendium.' prefix
+    const uuidParts = uuid.substr(11).split('.');
+    const uuidShort = uuidParts.pop();
+    const compendiumName = uuidParts.join('.');
+    const itemFromCompendium = await game.packs.get(compendiumName).getDocument(uuidShort);
+    if (itemFromCompendium) {
+      const item = this.pushItem(itemFromCompendium);
+    }
+  }
 
-  await loadDeity(output, build);
-  await loadAncestry(output, build);
-
-  return output;
+  /**
+   * Push a shallow copy of the item to the output.
+   * Return the new item.
+   */
+  pushItem(item) {
+    const newItem = Object.assign({}, item);
+    newItem._id = this.getFakeId();
+    this.output.items.push(newItem);
+    return newItem;
+  }
 }
+
+
 
 /** Perform the import using an Actor document and a buildId
  * @param targetActor an Actor document to overwrite
  * @param buildId a six-digit string
  */
-export async function pathbuilderImportFromId(targetActor, buildId) {
+export async function importFromPathbuilderId(targetActor, buildId) {
   const build = await fetchPathbuilderBuild(buildId);
-  const json = await constructJSON(build);
+  const builder = new JsonBuilder(build);
+  const json = await builder.constructJSON(build);
   return targetActor.importFromJSON(JSON.stringify(json));
 }
 
@@ -123,18 +179,21 @@ export async function pathbuilderImportDialog(targetActor) {
   let applyChanges = false;
   return new Dialog({
   title: `Pathbuilder Import`,
-    content: `
-      <div>
+    content:
+      `<div>
         <p><strong>It is strongly advised to import to a blank PC and not overwrite an existing PC.</strong></p>
         <hr>
-        <p>Step 1: Refresh this browser page!</p>
-        <p>Step 2: Export your character from Pathbuilder 2e via the app menu</p>
-        <p>Step 3: Enter the 6 digit user ID number from the pathbuilder export dialog below</p>
-        <br>
+        <p>Step 1: Export your character from Pathbuilder 2e via "Menu -> Export JSON"</p>
+        <p>Step 2: Enter the 6 digit user ID number from the pathbuilder export dialog below</p>
         <p>Please note - items which cannot be matched to the Foundry database will not be imported!</p>
-        <p><strong>All inventory items will be removed upon import.</strong> The option to turn this off will return in the future. If you need to keep items, I recommend creating a new PC, importing via Pathbuilder to the new PC, then dragging inventory items from old PC to new PC.</p>
+        <p>
+          <strong>All inventory items will be removed upon import.</strong>
+          The option to turn this off will return in the future.
+          If you need to keep items, I recommend creating a new PC,
+          importing via Pathbuilder to the new PC,
+          then dragging inventory items from old PC to new PC.
+        </p>
       <div>
-      <hr/>
       <div id="divCode">
         Enter your pathbuilder user ID number<br>
         <div id="divOuter">
@@ -143,39 +202,34 @@ export async function pathbuilderImportDialog(targetActor) {
           </div>
         </div>
       </div>
-      <br><br>
       <style>
         #textBoxBuildID {
-            border: 0px;
-            padding-left: 15px;
-            letter-spacing: 42px;
-            background-image: linear-gradient(to left, black 70%, rgba(255, 255, 255, 0) 0%);
-            background-position: bottom;
-            background-size: 50px 1px;
-            background-repeat: repeat-x;
-            background-position-x: 35px;
-            width: 330px;
-            min-width: 330px;
-          }
-          #divInner{
-            left: 0;
-            position: sticky;
-          }
-          #divOuter{
-            width: 285px;
-            overflow: hidden;
-          }
-          #divCode{
-            border: 1px solid black;
-            width: 300px;
-            margin: 0 auto;
-            padding: 5px;
-          }
-          #checkBoxMoney{
-            margin-left: 35px;
-          }
-      </style>
-      `,
+          border: 0px;
+          padding-left: 15px;
+          letter-spacing: 42px;
+          background-image: linear-gradient(to left, black 70%, rgba(255, 255, 255, 0) 0%);
+          background-position: bottom;
+          background-size: 50px 1px;
+          background-repeat: repeat-x;
+          background-position-x: 35px;
+          width: 330px;
+          min-width: 330px;
+        }
+        #divInner{
+          left: 0;
+          position: sticky;
+        }
+        #divOuter{
+          width: 285px;
+          overflow: hidden;
+        }
+        #divCode{
+          border: 1px solid black;
+          width: 300px;
+          margin: 0 auto;
+          padding: 5px;
+        }
+      </style>`,
     buttons: {
       yes: {
         icon: "<i class='fas fa-check'></i>",
@@ -196,7 +250,7 @@ export async function pathbuilderImportDialog(targetActor) {
           return;
         }
         log('Import build ' + buildId);
-        pathbuilderImportFromId(targetActor, buildId);
+        importFromPathbuilderId(targetActor, buildId);
       }
     },
   }).render(true);
